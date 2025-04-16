@@ -31,7 +31,7 @@ Access at:
 http://localhost:5000/admin
 
 Credentials:
-Email:    admin@odensai.com  
+Email:    admin@automation.com  
 Password: admin@123
 
 7. Upload PDFs of historical quotes
