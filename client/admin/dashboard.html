@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+
+<body class="container mt-5">
+  <div id="loader"
+    style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); z-index:999;">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Welcome, Admin</h2>
+    <a href="/" class="mb-4 btn btn-primary">Generate New Quote</a>
+  </div>
+  <form id="uploadForm" class="mb-4" enctype="multipart/form-data">
+    <input type="file" name="files" multiple accept="application/pdf" class="form-control mb-2" required />
+    <button class="btn btn-success">Upload PDFs</button>
+  </form>
+
+  <h5>Uploaded Files</h5>
+  <ul id="fileList" class="list-group"></ul>
+
+  <button id="trainBtn" class="btn btn-warning mt-4">Train Model</button>
+  <div id="status" class="mt-3 text-success fw-bold"></div>
+
+  <script>
+    const token = localStorage.getItem('adminToken');
+    if (!token) window.location.href = '/admin/login.html';
+
+    async function loadFiles() {
+      const res = await fetch('/api/admin/files', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const files = await res.json();
+      const list = document.getElementById('fileList');
+      list.innerHTML = '';
+      files.forEach(f => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex justify-content-between';
+        li.textContent = f;
+        const del = document.createElement('button');
+        del.className = 'btn btn-danger btn-sm';
+        del.textContent = 'Delete';
+        del.onclick = async () => {
+          await fetch(`/api/admin/files/${f}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          loadFiles();
+        };
+        li.appendChild(del);
+        list.appendChild(li);
+      });
+    }
+
+    document.getElementById('uploadForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const loader = document.getElementById('loader');
+      loader.style.display = 'block';
+      const formData = new FormData(e.target);
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        body: formData,
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      loader.style.display = 'none';
+      if (res.ok) {
+        alert('Uploaded successfully');
+        loadFiles();
+      }
+      else {
+        alert('Upload failed. Please try again.');
+      }
+    });
+
+    document.getElementById('trainBtn').addEventListener('click', async () => {
+      const loader = document.getElementById('loader');
+      loader.style.display = 'block';
+      const message = document.createElement('div');
+      message.textContent = "Don't refresh, this will take some time...";
+      message.style.position = 'fixed';
+      message.style.top = '60%';
+      message.style.left = '50%';
+      message.style.transform = 'translate(-50%, -50%)';
+      message.style.zIndex = '1000';
+      message.style.color = 'gray';
+      document.body.appendChild(message);
+      try {
+        const res = await fetch('/api/admin/train', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+        document.getElementById('status').textContent = result.message || 'Model trained';
+      } finally {
+        loader.style.display = 'none';
+        document.body.removeChild(message);
+      }
+    });
+
+    loadFiles();
+  </script>
+</body>
+
+</html>

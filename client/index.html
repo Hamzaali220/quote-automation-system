@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quote Automation Form</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+
+<body>
+  <div id="loader"
+    style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); z-index:999;">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+
+
+  <!-- Create New Quote Section -->
+  <div class="container mt-5">
+    <h1 class="mb-4 text-center">Quote Automation System</h1>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2 class="mb-4">Generate New Quote</h2>
+      <a href="/admin" class="mb-4 btn btn-primary">Train Model</a>
+    </div>
+    <form id="quoteForm">
+      <!-- Customer Details -->
+      <label for="customerId" class="form-label">Select Customer</label>
+      <div class="mb-3 d-flex justify-content-between align-items-center">
+
+        <select id="customerId" name="customerId" class="form-select" required>
+          <option value="" disabled selected>Select a customer</option>
+          <!-- Options will be populated -->
+        </select>
+        <a href="#addCustomerForm" class="btn btn-success btn-sm mx-3">Add Customer</a>
+      </div>
+      <!-- Quote Details -->
+      <div class="mb-3">
+        <label class="form-label">Quote Title</label>
+        <input type="text" name="quoteTitle" class="form-control" required />
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Reference</label>
+        <input type="text" name="reference" class="form-control" />
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Validity Date</label>
+        <input type="date" name="validityDate" class="form-control" required />
+      </div>
+      <!-- Product Specification -->
+      <div class="mb-3">
+        <label class="form-label">Product Specifications</label>
+        <textarea name="productSpecs" class="form-control" rows="4" required></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Upload Specification File (PDF)</label>
+        <input type="file" name="specsFile" id="specsFile" accept="application/pdf" class="form-control" />
+      </div>
+      <!-- Customer Communication -->
+      <div class="mb-3">
+        <label class="form-label">Communication (Text Notes)</label>
+        <textarea name="communicationText" class="form-control" rows="3"></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Or Upload Communication File (PDF or TXT)</label>
+        <input type="file" name="communicationFile" id="communicationFile" accept=".pdf,.txt" class="form-control" />
+      </div>
+      <!-- Submit Button -->
+      <div class="d-grid">
+        <button type="submit" id="form_submit" class="btn btn-primary">Generate Quote</button>
+      </div>
+    </form>
+  </div>
+  <!-- Add New Customer Section -->
+  <div class="container mt-5" id="addCustomerFormContainer">
+    <h4>Add New Customer</h4>
+    <form id="addCustomerForm" enctype="multipart/form-data">
+      <div class="mb-2">
+        <input name="companyName" class="form-control" placeholder="Company Name" required />
+      </div>
+      <div class="mb-2">
+        <input name="contactPerson" class="form-control" placeholder="Contact Person" required />
+      </div>
+      <div class="mb-2">
+        <input name="email" type="email" class="form-control" placeholder="Email" required />
+      </div>
+      <button type="submit" class="btn btn-success mb-4">Add Customer</button>
+    </form>
+  </div>
+
+  <script>
+    let customerSelect = document.getElementById('customerId');
+    // Load existing customers
+    fetch('http://localhost:5000/api/customers')
+      .then(res => res.json())
+      .then(data => {
+        data.forEach(c => {
+          const option = document.createElement('option');
+          option.value = c._id;
+          option.text = `${c.companyName} (${c.contactPerson})`;
+          customerSelect.appendChild(option);
+        });
+      });
+
+    // Handle Add Customer Form
+    const addCustomerForm = document.getElementById('addCustomerForm');
+    addCustomerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const formData = new FormData(addCustomerForm);
+      const body = {
+        companyName: formData.get('companyName'),
+        contactPerson: formData.get('contactPerson'),
+        email: formData.get('email')
+      };
+
+      const res = await fetch('http://localhost:5000/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const newCustomer = await res.json();
+
+      // Add to customer dropdown
+      const option = document.createElement('option');
+      option.value = newCustomer._id;
+      option.text = `${newCustomer.companyName} (${newCustomer.contactPerson})`;
+      customerSelect.appendChild(option);
+
+      // Select new customer
+      customerSelect.value = newCustomer._id;
+      addCustomerForm.reset();
+      alert('Customer added!');
+    });
+
+    const form = document.getElementById('quoteForm');
+    // const responseMsg = document.getElementById('responseMsg');
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault(); // prevent page reload
+      // Show loader
+      document.getElementById('loader').style.display = 'block';
+      const formData = new FormData();
+      const pdfFile = document.getElementById('specsFile').files[0];
+      const communicationFile = document.getElementById('communicationFile').files[0];
+      const customerId = document.getElementById('customerId').value;
+      const title = form.querySelector('input[name="quoteTitle"]').value;
+      const reference = form.querySelector('input[name="reference"]').value;
+      const validityDate = form.querySelector('input[name="validityDate"]').value;
+      const productSpecs = form.querySelector('textarea[name="productSpecs"]').value;
+      const communicationText = form.querySelector('textarea[name="communicationText"]').value;
+
+
+      formData.append('specsFile', pdfFile);
+
+      formData.append('communicationFile', communicationFile);
+      formData.append('customerId', customerId);
+      formData.append('quoteTitle', title);
+      formData.append('reference', reference);
+      formData.append('validityDate', validityDate);
+      formData.append('productSpecs', productSpecs);
+      formData.append('communicationText', communicationText);
+
+
+      try {
+        const response = await fetch('http://localhost:5000/api/quotes', {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await response.json();
+        // Hide loader
+        document.getElementById('loader').style.display = 'none';
+        if (response.ok) {
+          window.location.href = `preview.html?quoteId=${result._id}`;
+        } else {
+          alert(result.message);
+        }
+      } catch (error) {
+        alert(error.message);
+
+      }
+      return false;
+    });
+  </script>
+
+
+</body>
+
+</html>
